@@ -13,6 +13,7 @@ public:
     : semantic_components::SemanticComponentInterface<sensor_msgs::msg::BatteryState>(name, 1)
   {
     interface_names_.emplace_back(name_ + "/" + "voltage");
+    interface_names_.emplace_back(name_ + "/" + "current");
   }
 
   virtual ~BatterySensor() = default;
@@ -23,14 +24,23 @@ public:
     return voltage_;
   }
 
+  double get_current()
+  {
+    current_ = state_interfaces_[1].get().get_value();
+    return current_;
+  }
+
   bool get_values_as_message(sensor_msgs::msg::BatteryState& message)
   {
     get_voltage();
+    get_current();
     message.voltage = static_cast<float>(voltage_);
+    message.current = static_cast<float>(current_);
     return true;
   }
 
 private:
-  double voltage_ = 0.0;
+  double voltage_{0.0};
+  double current_{0.0};
 };
 }  // namespace battery_state_broadcaster

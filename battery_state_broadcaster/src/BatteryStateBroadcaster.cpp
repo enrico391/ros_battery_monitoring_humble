@@ -42,7 +42,7 @@ BatteryStateBroadcaster::on_configure(const rclcpp_lifecycle::State& /*previous_
       std::make_unique<realtime_tools::RealtimePublisher<sensor_msgs::msg::BatteryState>>(battery_state_pub_);
 
   realtime_publisher_->msg_.temperature = std::numeric_limits<double>::quiet_NaN();
-  realtime_publisher_->msg_.current = std::numeric_limits<double>::quiet_NaN();
+  //realtime_publisher_->msg_.current = std::numeric_limits<double>::quiet_NaN();
   realtime_publisher_->msg_.charge = std::numeric_limits<double>::quiet_NaN();
   realtime_publisher_->msg_.capacity = std::numeric_limits<double>::quiet_NaN();
   realtime_publisher_->msg_.design_capacity = std::numeric_limits<double>::quiet_NaN();
