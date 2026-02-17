@@ -38,6 +38,8 @@ public:
     message.voltage = static_cast<float>(voltage_);
     message.percentage = calculate_percentage();
     message.current = static_cast<float>(current_);
+    message.power_supply_status = get_charging_status() ? sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_CHARGING
+                                                  : sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_DISCHARGING;
     
     return true;
   }
@@ -66,6 +68,16 @@ public:
     return 0.0f; // Default return value if no match found
   }
 
+  bool get_charging_status()
+  {
+    for (const auto& entry : batteryTable) {
+      if (voltage_ >= entry.voltage) {
+        return entry.in_charging_range;
+      }
+    }
+    return false; // Default to not charging if voltage is below the lowest entry
+  }
+
   
 
 private:
@@ -76,17 +88,22 @@ private:
   struct VoltageMap {
     float voltage;
     float percentage;
+    bool in_charging_range = false;
   };
   
   // Based on the 20°C - 30°C curve from your Haisic manual
+  // at 13.85 the battery is fully charged, and at 10.7 it's empty. 
+  // above 13.00 V the battery is charging
   const std::vector<VoltageMap> batteryTable = {
-      {13.4f, 100.0f},
-      {13.2f, 90.0f},
-      {13.1f, 70.0f}, // The start of the flat plateau
-      {13.0f, 40.0f}, // Mid-plateau
-      {12.8f, 20.0f}, // The "knee" where voltage drops fast
-      {12.0f, 10.0f}, // Critical level
-      {10.0f, 0.0f}   // Empty
+      {13.75f, 100.0f, true}, // Fully charged
+      {13.00f, 90.0f, true},  // Charging range starts
+      {12.3f, 100.0f, false},
+      {12.2f, 90.0f, false},
+      {12.1f, 70.0f, false}, // The start of the flat plateau
+      {12.0f, 40.0f, false}, // Mid-plateau
+      {11.8f, 20.0f, false}, // The "knee" where voltage drops fast
+      {11.2f, 10.0f, false}, // Critical level
+      {10.7f, 0.0f, false}   // Empty
   };
 };
 }  // namespace battery_state_broadcaster
