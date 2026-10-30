@@ -1,19 +1,44 @@
+#pragma once
 
+#include <cmath>
 #include <limits>
+#include <stdexcept>
+#include <string>
+#include <vector>
 #include <semantic_components/semantic_component_interface.hpp>
 #include <sensor_msgs/msg/battery_state.hpp>
-#include <sensor_msgs/msg/detail/battery_state__struct.hpp>
 
 namespace battery_state_broadcaster
 {
 class BatterySensor : public semantic_components::SemanticComponentInterface<sensor_msgs::msg::BatteryState>
 {
 public:
-  explicit BatterySensor(const std::string& name)
-    : semantic_components::SemanticComponentInterface<sensor_msgs::msg::BatteryState>(name, 1)
+  explicit BatterySensor(const std::string& name,
+    const std::vector<double>& charging_voltages = {},
+    const std::vector<double>& charging_percentages = {})
+    : semantic_components::SemanticComponentInterface<sensor_msgs::msg::BatteryState>(name, 2)
   {
     interface_names_.emplace_back(name_ + "/" + "voltage");
     interface_names_.emplace_back(name_ + "/" + "current");
+    if (charging_voltages.size() != charging_percentages.size() ||
+      (!charging_voltages.empty() && charging_voltages.size() < 2))
+    {
+      throw std::invalid_argument(
+        "charging_voltages and charging_percentages must both be empty or have the same size (at least 2)");
+    }
+    charging_table_.reserve(charging_voltages.size());
+    for (size_t i = 0; i < charging_voltages.size(); ++i) {
+      if (!std::isfinite(charging_voltages[i]) || !std::isfinite(charging_percentages[i]) ||
+        charging_percentages[i] < 0.0 || charging_percentages[i] > 100.0 ||
+        (i > 0 && (charging_voltages[i] >= charging_voltages[i - 1] ||
+        charging_percentages[i] > charging_percentages[i - 1])))
+      {
+        throw std::invalid_argument(
+          "Charging curve requires finite values, strictly descending voltages, and "
+          "non-increasing percentages in [0, 100]");
+      }
+      charging_table_.push_back({charging_voltages[i], charging_percentages[i]});
+    }
   }
 
   virtual ~BatterySensor() = default;
@@ -38,72 +63,73 @@ public:
     message.voltage = static_cast<float>(voltage_);
     message.percentage = calculate_percentage();
     message.current = static_cast<float>(current_);
-    message.power_supply_status = get_charging_status() ? sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_CHARGING
-                                                  : sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_DISCHARGING;
+    if (!std::isfinite(current_)) {
+      message.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_UNKNOWN;
+    } else if (get_charging_status()) {
+      message.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_CHARGING;
+    } else if (current_ < 0.0) {
+      message.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_DISCHARGING;
+    } else {
+      message.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_NOT_CHARGING;
+    }
     
     return true;
   }
 
-  float calculate_percentage()
+  float calculate_percentage() const
   {
-    if (voltage_ >= batteryTable.front().voltage) {
-      return 100.0f;
+    if (!std::isfinite(voltage_) || !std::isfinite(current_)) {
+      return std::numeric_limits<float>::quiet_NaN();
     }
-    if (voltage_ <= batteryTable.back().voltage) {
-      return 0.0f;
+    const auto& table = get_charging_status() ? charging_table_ : discharging_table_;
+    if (table.empty()) {
+      return std::numeric_limits<float>::quiet_NaN();
+    }
+    if (voltage_ >= table.front().voltage) {
+      return static_cast<float>(table.front().percentage);
+    }
+    if (voltage_ <= table.back().voltage) {
+      return static_cast<float>(table.back().percentage);
     }
 
-    for (size_t i = 0; i < batteryTable.size() -1 ; ++i) {
-      if (voltage_ <= batteryTable[i].voltage && voltage_ >= batteryTable[i + 1].voltage) {
-        float vHigh = batteryTable[i].voltage;
-        float pHigh = batteryTable[i].percentage;
-        float vLow = batteryTable[i + 1].voltage;
-        float pLow = batteryTable[i + 1].percentage;
-
-        // Linear interpolation
-        return pLow + (pHigh - pLow) * (voltage_ - vLow) / (vHigh - vLow);
+    for (size_t i = 0; i + 1 < table.size(); ++i) {
+      if (voltage_ <= table[i].voltage && voltage_ >= table[i + 1].voltage) {
+        const auto& high = table[i];
+        const auto& low = table[i + 1];
+        return static_cast<float>(low.percentage +
+          (high.percentage - low.percentage) *
+          (voltage_ - low.voltage) / (high.voltage - low.voltage));
       }
     }
 
-    return 0.0f; // Default return value if no match found
+    return std::numeric_limits<float>::quiet_NaN();
   }
 
-  bool get_charging_status()
+  bool get_charging_status() const
   {
-    for (const auto& entry : batteryTable) {
-      if (voltage_ >= entry.voltage) {
-        return entry.in_charging_range;
-      }
-    }
-    return false; // Default to not charging if voltage is below the lowest entry
+    return std::isfinite(current_) && current_ > 0.0;
   }
-
-  
 
 private:
   double voltage_ = 0.0;
   double current_ = 0.0;
-  double percentage_ = 0.0;
 
   struct VoltageMap {
-    float voltage;
-    float percentage;
-    bool in_charging_range = false;
+    double voltage;
+    double percentage;
   };
+
+  std::vector<VoltageMap> charging_table_;
   
-  // Based on the 20°C - 30°C curve from your Haisic manual
-  // at 13.85 the battery is fully charged, and at 10.7 it's empty. 
-  // above 13.00 V the battery is charging
-  const std::vector<VoltageMap> batteryTable = {
-      {13.75f, 100.0f, true}, // Fully charged
-      {13.00f, 90.0f, true},  // Charging range starts
-      {12.3f, 100.0f, false},
-      {12.2f, 90.0f, false},
-      {12.1f, 70.0f, false}, // The start of the flat plateau
-      {12.0f, 40.0f, false}, // Mid-plateau
-      {11.8f, 20.0f, false}, // The "knee" where voltage drops fast
-      {11.2f, 10.0f, false}, // Critical level
-      {10.7f, 0.0f, false}   // Empty
+  // Existing discharge calibration, kept separate from the charging curve.
+  const std::vector<VoltageMap> discharging_table_ = {
+      {12.3, 100.0},
+      {12.2, 90.0},
+      {12.1, 70.0},
+      {12.0, 40.0},
+      {11.8, 20.0},
+      {11.2, 10.0},
+      {10.7, 0.0}
   };
 };
 }  // namespace battery_state_broadcaster

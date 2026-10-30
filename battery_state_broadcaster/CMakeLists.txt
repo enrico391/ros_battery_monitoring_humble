@@ -44,4 +44,12 @@ install(
 ament_export_targets(export_battery_state_broadcaster HAS_LIBRARY_TARGET)
 ament_export_dependencies(${THIS_PACKAGE_INCLUDE_DEPENDS})
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  ament_add_gtest(battery_sensor_test test/battery_sensor_test.cpp)
+  target_link_libraries(battery_sensor_test battery_state_broadcaster)
+  ament_add_gtest(battery_state_broadcaster_test test/battery_state_broadcaster_test.cpp)
+  target_link_libraries(battery_state_broadcaster_test battery_state_broadcaster)
+endif()
+
 ament_package()

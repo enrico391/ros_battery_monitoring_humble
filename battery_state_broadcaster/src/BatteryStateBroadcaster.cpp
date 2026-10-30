@@ -19,6 +19,12 @@ controller_interface::CallbackReturn BatteryStateBroadcaster::on_init()
     if(!node->has_parameter("design_capacity")){
       node->declare_parameter("design_capacity", 0.0);
     }
+    if(!node->has_parameter("charging_voltages")){
+      node->declare_parameter<std::vector<double>>("charging_voltages", std::vector<double>{});
+    }
+    if(!node->has_parameter("charging_percentages")){
+      node->declare_parameter<std::vector<double>>("charging_percentages", std::vector<double>{});
+    }
   }
   catch (const std::exception & e)
   {
@@ -34,7 +40,17 @@ BatteryStateBroadcaster::on_configure(const rclcpp_lifecycle::State& /*previous_
 {
   std::string sensor_name = get_node()->get_parameter("sensor_name").as_string();
 
-  battery_sensor_ = std::make_unique<BatterySensor>(BatterySensor(sensor_name));
+  try {
+    battery_sensor_ = std::make_unique<BatterySensor>(
+      sensor_name,
+      get_node()->get_parameter("charging_voltages").as_double_array(),
+      get_node()->get_parameter("charging_percentages").as_double_array());
+  }
+  catch (const std::exception& e)
+  {
+    RCLCPP_ERROR(get_node()->get_logger(), "Invalid charging curve: %s", e.what());
+    return CallbackReturn::ERROR;
+  }
 
   battery_state_pub_ =
       get_node()->create_publisher<sensor_msgs::msg::BatteryState>("~/battery_state", rclcpp::SystemDefaultsQoS());
