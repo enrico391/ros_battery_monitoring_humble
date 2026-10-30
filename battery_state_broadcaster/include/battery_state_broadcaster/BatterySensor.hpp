@@ -123,7 +123,7 @@ private:
   
   // Existing discharge calibration, kept separate from the charging curve.
   const std::vector<VoltageMap> discharging_table_ = {
-      {12.3, 100.0},
+      {13.06, 100.0},
       {12.2, 90.0},
       {12.1, 70.0},
       {12.0, 40.0},
