@@ -61,7 +61,8 @@ public:
     get_current();
     
     message.voltage = static_cast<float>(voltage_);
-    message.percentage = calculate_percentage();
+    // Calibration tables use 0-100; sensor_msgs/BatteryState requires 0-1.
+    message.percentage = calculate_percentage() / 100.0f;
     message.current = static_cast<float>(current_);
     if (!std::isfinite(current_)) {
       message.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_UNKNOWN;

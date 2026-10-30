@@ -84,8 +84,8 @@ TEST_F(BatterySensorTest, DischargeCurveInterpolatesAndClamps)
 {
   current_ = -1.0;
   const std::vector<std::pair<double, float>> samples = {
-    {13.75, 100.0f}, {12.65, 100.0f}, {12.3, 100.0f}, {12.15, 80.0f},
-    {12.0, 40.0f}, {10.95, 5.0f}, {10.7, 0.0f}, {9.0, 0.0f}};
+    {13.75, 1.0f}, {13.06, 1.0f}, {12.63, 0.95f}, {12.15, 0.80f},
+    {12.0, 0.40f}, {10.95, 0.05f}, {10.7, 0.0f}, {9.0, 0.0f}};
   for (const auto& sample : samples) {
     voltage_ = sample.first;
     EXPECT_NEAR(read().percentage, sample.second, 0.001f) << "Voltage: " << voltage_;
@@ -112,8 +112,8 @@ TEST_F(BatterySensorTest, ChargingCurveInterpolatesAndClamps)
   battery_state_broadcaster::BatterySensor sensor("battery", {14.0, 12.0, 10.0}, {100.0, 50.0, 0.0});
   sensor.assign_loaned_state_interfaces(interfaces_);
   const std::vector<std::pair<double, float>> samples = {
-    {15.0, 100.0f}, {14.0, 100.0f}, {13.0, 75.0f}, {12.0, 50.0f},
-    {11.0, 25.0f}, {10.0, 0.0f}, {9.0, 0.0f}};
+    {15.0, 1.0f}, {14.0, 1.0f}, {13.0, 0.75f}, {12.0, 0.50f},
+    {11.0, 0.25f}, {10.0, 0.0f}, {9.0, 0.0f}};
   for (const auto& sample : samples) {
     voltage_ = sample.first;
     EXPECT_FLOAT_EQ(read(sensor).percentage, sample.second) << "Voltage: " << voltage_;
@@ -125,13 +125,13 @@ TEST_F(BatterySensorTest, CurrentChangesSelectTheCurveOnEveryUpdate)
   battery_state_broadcaster::BatterySensor sensor("battery", {14.0, 12.0, 10.0}, {100.0, 50.0, 0.0});
   sensor.assign_loaned_state_interfaces(interfaces_);
   voltage_ = 12.0;
-  EXPECT_FLOAT_EQ(read(sensor).percentage, 50.0f);
+  EXPECT_FLOAT_EQ(read(sensor).percentage, 0.50f);
   current_ = -1.0;
-  EXPECT_FLOAT_EQ(read(sensor).percentage, 40.0f);
+  EXPECT_FLOAT_EQ(read(sensor).percentage, 0.40f);
   current_ = 0.0;
-  EXPECT_FLOAT_EQ(read(sensor).percentage, 40.0f);
+  EXPECT_FLOAT_EQ(read(sensor).percentage, 0.40f);
   current_ = 1.0;
-  EXPECT_FLOAT_EQ(read(sensor).percentage, 50.0f);
+  EXPECT_FLOAT_EQ(read(sensor).percentage, 0.50f);
 }
 
 TEST_F(BatterySensorTest, PartialChargingCurveClampsToItsEndpointPercentages)
@@ -139,9 +139,9 @@ TEST_F(BatterySensorTest, PartialChargingCurveClampsToItsEndpointPercentages)
   battery_state_broadcaster::BatterySensor sensor("battery", {13.0, 12.0}, {80.0, 20.0});
   sensor.assign_loaned_state_interfaces(interfaces_);
   voltage_ = 14.0;
-  EXPECT_FLOAT_EQ(read(sensor).percentage, 80.0f);
+  EXPECT_FLOAT_EQ(read(sensor).percentage, 0.80f);
   voltage_ = 11.0;
-  EXPECT_FLOAT_EQ(read(sensor).percentage, 20.0f);
+  EXPECT_FLOAT_EQ(read(sensor).percentage, 0.20f);
 }
 
 struct InvalidCurve

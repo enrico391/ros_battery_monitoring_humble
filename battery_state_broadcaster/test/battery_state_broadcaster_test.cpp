@@ -81,7 +81,7 @@ TEST_F(BatteryStateBroadcasterTest, ConfiguredCurveIsUsedInPublishedMessage)
   EXPECT_FLOAT_EQ(received->voltage, 12.0f);
   EXPECT_FLOAT_EQ(received->current, 1.0f);
   EXPECT_EQ(received->power_supply_status, Message::POWER_SUPPLY_STATUS_CHARGING);
-  EXPECT_FLOAT_EQ(received->percentage, 50.0f);
+  EXPECT_FLOAT_EQ(received->percentage, 0.50f);
   EXPECT_TRUE(std::isnan(received->charge));
   broadcaster_->on_deactivate(rclcpp_lifecycle::State());
   broadcaster_->release_interfaces();

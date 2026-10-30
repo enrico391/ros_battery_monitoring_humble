@@ -89,9 +89,9 @@ percentages in the range 0–100. Unequal lengths or invalid values cause contro
 configuration to fail with an error. Values between points are linearly
 interpolated; values outside the table clamp to the nearest endpoint's percentage.
 
-For compatibility with existing consumers, this broadcaster continues to publish
-percentage on a **0–100** scale, although ROS BatteryState specifies 0–1. Calibration
-percentages also use 0–100.
+The broadcaster publishes
+percentage on the ROS BatteryState **0–1** scale (for example, `0.5` means 50%).
+Calibration percentages continue to use 0–100; conversion happens when publishing.
 
 Parameters are read when the controller is configured. After editing the YAML,
 reload the controller with the updated parameters (or restart the robot bringup).
